@@ -1,0 +1,679 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum LevelType {
+  LESSON
+  CHECKPOINT
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TYPE_OUTPUT
+}
+
+enum QuestionOrigin {
+  AUTHORED
+  WEB
+}
+
+enum QuestionStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  PASSED
+  FAILED
+}
+
+enum PlacementStatus {
+  IN_PROGRESS
+  PASSED
+  FAILED
+}
+
+enum CommitmentMode {
+  SIMULATED
+  DEPOSIT_REFUND
+  PENALTY
+}
+
+enum MissedDayMode {
+  INACTIVE_DAYS
+  LATE_DAYS
+}
+
+enum CommitmentStatus {
+  PENDING_PAYMENT_METHOD
+  ACTIVE
+  COMPLETED
+  PENALTY_DUE
+  CLOSED
+  CANCELLED
+}
+
+enum PenaltyType {
+  DAILY_MISSED
+  LATE_DAY
+  FINAL_FAIL
+}
+
+enum FinalSubmissionType {
+  EXAM
+  PROJECT
+}
+
+enum FinalSubmissionStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum AppealStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VoiceContentType {
+  QUESTION_PROMPT
+  EXPLANATION
+  LESSON_TEXT
+  ARISTOTLE_TEMPLATE
+}
+
+enum VoiceAssetStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+model User {
+  id               String            @id @default(cuid())
+  email            String            @unique
+  passwordHash     String
+  name             String?
+  displayName      String?
+  displayNameStatus DisplayNameStatus @default(PENDING)
+  country          String?
+  role             UserRole          @default(USER)
+  timezone         String            @default("UTC")
+  isAdult          Boolean           @default(false)
+  xp               Int               @default(0)
+  currentStreak    Int               @default(0)
+  longestStreak    Int               @default(0)
+  lastStreakDate   String?
+  stripeCustomerId String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  refreshTokens      RefreshToken[]
+  levelProgress      UserLevelProgress[]
+  attempts           Attempt[]
+  answerSubmissions  AnswerSubmission[]
+  pointEvents        PointEvent[]
+  reviewQueueItems   ReviewQueueItem[]
+  placementTests     PlacementTest[]
+  commitments        Commitment[]
+  finalSubmissions   FinalSubmission[]
+  appeals            Appeal[]
+  auditLogs          AuditLog[]
+  dailyAttempts      DailyAttempt[]
+  leaderboardEntries LeaderboardEntry[]
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Track {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  levelCount    Int
+  order         Int      @unique
+  isPlaceholder Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  units             Unit[]
+  levels            Level[]
+  prerequisites     TrackPrerequisite[] @relation("TrackPrerequisites")
+  requiredFor       TrackPrerequisite[] @relation("RequiredTrack")
+  levelProgress     UserLevelProgress[]
+  attempts          Attempt[]
+  pointEvents       PointEvent[]
+  placementTests    PlacementTest[]
+  commitments       Commitment[]
+}
+
+model TrackPrerequisite {
+  id              String @id @default(cuid())
+  trackId         String
+  requiredTrackId String
+  requiredPoints  Int
+
+  track         Track @relation("TrackPrerequisites", fields: [trackId], references: [id], onDelete: Cascade)
+  requiredTrack Track @relation("RequiredTrack", fields: [requiredTrackId], references: [id], onDelete: Cascade)
+
+  @@unique([trackId, requiredTrackId])
+}
+
+model Unit {
+  id      String @id @default(cuid())
+  trackId String
+  title   String
+  order   Int
+
+  track          Track           @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  levels         Level[]
+  placementTests PlacementTest[]
+
+  @@unique([trackId, order])
+}
+
+model Level {
+  id      String    @id @default(cuid())
+  unitId  String
+  trackId String
+  number  Int
+  type    LevelType
+  title   String?
+
+  unit          Unit                @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  track         Track               @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  questions     Question[]
+  userProgress  UserLevelProgress[]
+  attempts      Attempt[]
+
+  @@unique([trackId, number])
+  @@index([unitId])
+}
+
+model Question {
+  id              String         @id @default(cuid())
+  levelId         String
+  questionGroupId String
+  type            QuestionType
+  prompt          String
+  codeSnippet     String?
+  spokenText      String?
+  options         Json?
+  answer          String
+  explanation     String
+  origin          QuestionOrigin @default(AUTHORED)
+  sourceUrl       String?
+  license         String?
+  status          QuestionStatus @default(DRAFT)
+  rejectionReason String?
+  version         Int            @default(1)
+  isLatest        Boolean        @default(true)
+  createdById     String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  level             Level              @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  answerSubmissions AnswerSubmission[]
+  reviewQueueItems  ReviewQueueItem[]
+
+  @@index([levelId, status, origin, isLatest])
+  @@index([questionGroupId])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  entityType  String
+  entityId    String
+  action      String
+  reason      String?
+  changes     Json
+  createdAt   DateTime @default(now())
+
+  actor User @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+}
+
+model UserLevelProgress {
+  id           String   @id @default(cuid())
+  userId       String
+  levelId      String
+  trackId      String
+  passedAt     DateTime @default(now())
+  viaPlacement Boolean  @default(false)
+  bestScorePct Float    @default(1)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level Level @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, levelId])
+  @@index([userId, trackId])
+}
+
+model Attempt {
+  id              String        @id @default(cuid())
+  userId          String
+  levelId         String
+  trackId         String
+  type            LevelType
+  status          AttemptStatus @default(IN_PROGRESS)
+  heartsRemaining Int           @default(5)
+  xpEarned        Int           @default(0)
+  questionIds     Json
+  totalQuestions  Int
+  correctCount    Int           @default(0)
+  answeredCount   Int           @default(0)
+  startedAt       DateTime      @default(now())
+  finishedAt      DateTime?
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level   Level              @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  track   Track              @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  answers AnswerSubmission[]
+
+  @@index([userId, levelId])
+}
+
+model AnswerSubmission {
+  id              String   @id @default(cuid())
+  attemptId       String
+  userId          String
+  questionId      String
+  submittedAnswer String
+  isCorrect       Boolean
+  createdAt       DateTime @default(now())
+
+  attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([userId, questionId])
+}
+
+model PointEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  trackId     String
+  levelNumber Int
+  points      Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trackId, levelNumber])
+  @@index([userId, trackId])
+}
+
+model ReviewQueueItem {
+  id                 String    @id @default(cuid())
+  userId             String
+  questionId         String
+  wrongCount         Int       @default(1)
+  consecutiveCorrect Int       @default(0)
+  intervalStage      Int       @default(0)
+  nextReviewAt       DateTime
+  lastReviewedAt     DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId, nextReviewAt])
+}
+
+model PlacementTest {
+  id              String          @id @default(cuid())
+  userId          String
+  trackId         String
+  targetUnitId    String
+  targetUnitOrder Int
+  questionIds     Json
+  status          PlacementStatus @default(IN_PROGRESS)
+  scorePct        Float?
+  createdAt       DateTime        @default(now())
+  completedAt     DateTime?
+
+  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track      Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  targetUnit Unit  @relation(fields: [targetUnitId], references: [id], onDelete: Cascade)
+
+  @@index([userId, trackId])
+}
+
+model Commitment {
+  id                           String           @id @default(cuid())
+  userId                       String
+  trackId                      String
+  startDate                    DateTime
+  durationDays                 Int
+  timezone                     String
+  mode                         CommitmentMode
+  missedDayMode                MissedDayMode
+  dailyPenaltyCents            Int              @default(100)
+  finalFailPenaltyCents        Int
+  depositCents                 Int?
+  maxTotalPenaltyCents         Int
+  excusedDaysAllowed           Int              @default(2)
+  currency                     String           @default("usd")
+  status                       CommitmentStatus @default(PENDING_PAYMENT_METHOD)
+  termsVersion                 String
+  termsAcceptedAt              DateTime
+  requiredLevelsPerDay         Float
+  stripeCustomerId             String?
+  stripeCheckoutSessionId      String?
+  stripeSetupIntentId          String?
+  stripePaymentMethodId        String?
+  stripeDepositPaymentIntentId String?
+  stripePenaltyPaymentIntentId String?
+  penaltyRetryCount            Int              @default(0)
+  lastPenaltyAttemptAt         DateTime?
+  needsAdminAttention          Boolean          @default(false)
+  hasActiveAppeal              Boolean          @default(false)
+  finalPassedAt                DateTime?
+  closedAt                     DateTime?
+  createdAt                    DateTime         @default(now())
+  updatedAt                    DateTime         @updatedAt
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track            Track               @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  penalties        CommitmentPenalty[]
+  finalSubmissions FinalSubmission[]
+  appeals          Appeal[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model CommitmentPenalty {
+  id           String      @id @default(cuid())
+  commitmentId String
+  type         PenaltyType
+  date         String
+  amountCents  Int
+  voidedAt     DateTime?
+  voidedById   String?
+  voidReason   String?
+  createdAt    DateTime    @default(now())
+
+  commitment Commitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+
+  @@unique([commitmentId, type, date])
+  @@index([commitmentId])
+}
+
+model FinalSubmission {
+  id            String                @id @default(cuid())
+  commitmentId  String
+  userId        String
+  type          FinalSubmissionType
+  status        FinalSubmissionStatus @default(SUBMITTED)
+  attemptNumber Int                   @default(1)
+  questionIds   Json?
+  answers       Json?
+  scorePct      Float?
+  startedAt     DateTime?
+  expiresAt     DateTime?
+  submittedAt   DateTime?
+  projectUrl    String?
+  projectNotes  String?
+  reviewerId    String?
+  reviewNotes   String?
+  reviewedAt    DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  commitment Commitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appeals    Appeal[]
+
+  @@index([commitmentId, type])
+}
+
+model Appeal {
+  id                 String       @id @default(cuid())
+  commitmentId       String
+  userId             String
+  finalSubmissionId  String?
+  reason             String
+  status             AppealStatus @default(PENDING)
+  adminDecisionNotes String?
+  decidedById        String?
+  decidedAt          DateTime?
+  createdAt          DateTime     @default(now())
+
+  commitment      Commitment       @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  finalSubmission FinalSubmission? @relation(fields: [finalSubmissionId], references: [id], onDelete: SetNull)
+
+  @@index([commitmentId, status])
+}
+
+model StripeWebhookEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
+}
+
+model VoiceAsset {
+  id          String           @id @default(cuid())
+  contentType VoiceContentType
+  contentId   String
+  language    String
+  voiceId     String
+  textHash    String
+  audioUrl    String?
+  transcript  String
+  status      VoiceAssetStatus @default(PENDING)
+  attempts    Int              @default(0)
+  lastError   String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([contentType, contentId, language, voiceId, textHash])
+  @@index([contentType, contentId])
+}
+
+// ==========================================
+// 13. DAILY QUIZ: "ARISTOTLE"
+// ==========================================
+
+enum DisplayNameStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DailyQuizStatus {
+  BUFFERED
+  LIVE
+  CLOSED
+}
+
+enum DailyQuestionType {
+  ESTIMATE
+  MULTIPLE_CHOICE
+}
+
+enum DailyQuestionOrigin {
+  HUMAN
+  AI
+}
+
+enum DailyQuestionStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+}
+
+enum LeaderboardPeriod {
+  DAILY
+  WEEKLY
+  ALL_TIME
+}
+
+enum AristotleTemplateKey {
+  INTRO
+  FEEDBACK_CORRECT
+  FEEDBACK_INCORRECT
+  FEEDBACK_TIMEOUT
+  RESULT_SUMMARY
+}
+
+model DailyQuiz {
+  id                  String          @id @default(cuid())
+  quizDate            String          @unique
+  status              DailyQuizStatus @default(BUFFERED)
+  publishedAt         DateTime?
+  closedAt            DateTime?
+  usedReserveFallback Boolean         @default(false)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  questions DailyQuestion[]
+  attempts  DailyAttempt[]
+
+  @@index([status, quizDate])
+}
+
+model DailyQuestion {
+  id              String              @id @default(cuid())
+  dailyQuizId     String?
+  position        Int?
+  type            DailyQuestionType
+  prompt          String
+  codeSnippet     String?
+  spokenText      String?
+  options         Json?
+  correctAnswer   String
+  numericAnswer   Float?
+  scale           Float?
+  explanation     String
+  sourceUrl       String?
+  license         String?
+  status          DailyQuestionStatus @default(DRAFT)
+  rejectionReason String?
+  generatedBy     DailyQuestionOrigin
+  fingerprint     String
+  lastUsedDate    String?
+  isReserve       Boolean             @default(false)
+  createdById     String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  dailyQuiz DailyQuiz?    @relation(fields: [dailyQuizId], references: [id], onDelete: SetNull)
+  answers   DailyAnswer[]
+
+  @@unique([dailyQuizId, position])
+  @@index([fingerprint, createdAt])
+  @@index([status, isReserve, lastUsedDate])
+}
+
+model DailyAttempt {
+  id                       String    @id @default(cuid())
+  userId                   String
+  dailyQuizId              String
+  quizDate                 String
+  startedAt                DateTime  @default(now())
+  currentPosition          Int       @default(1)
+  currentQuestionStartedAt DateTime  @default(now())
+  finishedAt               DateTime?
+  totalScore               Int       @default(0)
+  totalTimeMs              Int       @default(0)
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyQuiz DailyQuiz     @relation(fields: [dailyQuizId], references: [id], onDelete: Cascade)
+  answers   DailyAnswer[]
+
+  @@unique([userId, quizDate])
+  @@index([quizDate, totalScore(sort: Desc), totalTimeMs(sort: Asc)])
+}
+
+model DailyAnswer {
+  id          String   @id @default(cuid())
+  attemptId   String
+  questionId  String
+  position    Int
+  givenValue  String?
+  score       Int
+  timeMs      Int
+  isLate      Boolean  @default(false)
+  submittedAt DateTime @default(now())
+
+  attempt  DailyAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question DailyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId, position])
+}
+
+model LeaderboardEntry {
+  id        String            @id @default(cuid())
+  userId    String
+  period    LeaderboardPeriod
+  periodKey String
+  score     Int
+  timeMs    Int
+  country   String?
+  updatedAt DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, period, periodKey])
+  @@index([period, periodKey, score(sort: Desc), timeMs(sort: Asc), userId(sort: Asc)])
+}
+
+model AristotleTemplate {
+  id          String               @id @default(cuid())
+  key         AristotleTemplateKey @unique
+  title       String
+  body        String
+  language    String               @default("en")
+  voiceId     String               @default("aristotle")
+  updatedById String?
+  updatedAt   DateTime             @updatedAt
+}
+
+model AdminAlert {
+  id         String    @id @default(cuid())
+  type       String
+  message    String
+  quizDate   String?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([resolvedAt, createdAt])
+}
+
