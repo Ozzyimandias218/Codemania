@@ -154,6 +154,33 @@ export interface CommitmentItem {
   appeals: Array<{ id: string; reason: string; status: string; createdAt: string }>;
 }
 
+export type StripeWebhookEventStatus = 'PROCESSING' | 'PROCESSED' | 'FAILED' | 'IGNORED';
+
+export interface StripeWebhookEventLog {
+  id: string;
+  type: string;
+  status: StripeWebhookEventStatus;
+  commitmentId: string | null;
+  summary: string | null;
+  errorMessage: string | null;
+  duplicateCount: number;
+  receivedAt: string;
+  processedAt: string | null;
+  lastDuplicateAt: string | null;
+}
+
+export interface StripeWebhookEventsResponse {
+  events: StripeWebhookEventLog[];
+  counts: {
+    total: number;
+    processed: number;
+    failed: number;
+    ignored: number;
+    processing: number;
+  };
+  source: 'postgresql' | 'sandbox-memory';
+}
+
 const STORAGE_KEY = 'codemania_auth_session';
 
 export interface StoredSession {
@@ -375,7 +402,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  // Section 13: Daily Quiz "Aristotle" & Leaderboards
+  // Section 13: Zugzwang ("Aristotle") & Leaderboards
   updateProfile: (body: { displayName: string; country?: string | null }) =>
     request<{
       id: string;
@@ -403,7 +430,7 @@ export const api = {
       aristotleIntro: string;
     }>('/daily/today'),
 
-  startDailyQuiz: () =>
+  startZugzwang: () =>
     request<{
       attemptId: string;
       quizDate: string;
@@ -620,5 +647,88 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  adminListStripeWebhookEvents: (params?: {
+    status?: 'ALL' | StripeWebhookEventStatus;
+    type?: string;
+    search?: string;
+    limit?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.status && params.status !== 'ALL') q.set('status', params.status);
+    if (params?.type?.trim()) q.set('type', params.type.trim());
+    if (params?.search?.trim()) q.set('search', params.search.trim());
+    if (params?.limit) q.set('limit', String(params.limit));
+    const qs = q.toString();
+    return request<StripeWebhookEventsResponse>(`/webhooks/stripe/events${qs ? `?${qs}` : ''}`);
+  },
+
+  getCodingChallenge: (levelId: string) =>
+    request<CodingChallengeResponse>(`/api/tutor/challenge/${encodeURIComponent(levelId)}`),
+
+  submitCodeToTutor: (body: { levelId: string; code: string }) =>
+    request<TutorEvalResponse>('/api/tutor', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
+
+export interface CodingChallengeResponse {
+  levelId: string;
+  levelNumber: number;
+  levelTitle: string;
+  trackSlug: string;
+  lessonGoal: string;
+  starterCode: string;
+  testCases: Array<{
+    id: string;
+    description: string;
+    expected: string;
+  }>;
+}
+
+export interface TutorTestCaseResult {
+  id: string;
+  description: string;
+  passed: boolean;
+  expected: string;
+  actual: string;
+  stdout: string;
+  error: string | null;
+}
+
+export interface TutorEvalResponse {
+  levelId: string;
+  levelNumber: number;
+  lessonGoal: string;
+  testResults: {
+    allPassed: boolean;
+    passedCount: number;
+    totalCount: number;
+    timedOut: boolean;
+    syntaxError: string | null;
+    runtimeError: string | null;
+    results: TutorTestCaseResult[];
+  };
+  tutor: {
+    feedback: string;
+    score: number;
+    nextAction: 'retry' | 'advance' | 'review';
+  };
+  progressUpdate: {
+    levelPassed: boolean;
+    newlyCompleted: boolean;
+    xpAwarded: number;
+    totalXp: number;
+    pointAwarded: boolean;
+    streak: {
+      current: number;
+      longest: number;
+      incrementedToday: boolean;
+    };
+    nextLevelId: string | null;
+    nextLevelNumber: number | null;
+    reviewEnqueued: boolean;
+  };
+}
 

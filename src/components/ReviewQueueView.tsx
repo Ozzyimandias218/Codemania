@@ -29,32 +29,34 @@ export function ReviewQueueView() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Spaced Repetition Review Queue</h1>
-        <p className="text-sm text-slate-600 mt-1">
+        <h1 className="text-2xl font-bold text-[#1D2433] dark:text-[#E8EBF4]">
+          Spaced Repetition Review Queue
+        </h1>
+        <p className="text-sm text-[#4B556B] dark:text-[#B4BCD0] mt-1">
           Missed questions return automatically at +1 day, +3 days, and +7 days until answered
           correctly twice in a row.
         </p>
       </div>
 
       {error && (
-        <div className="p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+        <div className="p-3 text-sm font-medium text-[#DC2626] dark:text-[#F87171] bg-[#EEF1F7] dark:bg-[#222638] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="p-6 bg-white border border-slate-200 rounded-xl text-sm text-slate-500">
+        <div className="p-6 bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-xl text-sm text-[#4B556B] dark:text-[#B4BCD0]">
           Loading review queue...
         </div>
       ) : items.length === 0 ? (
-        <div className="p-8 bg-white border border-slate-200 rounded-xl text-sm text-slate-600">
+        <div className="p-6 bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-xl text-sm text-[#4B556B] dark:text-[#B4BCD0]">
           Your review queue is clear. Wrong answers from lessons or checkpoints will appear here.
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-xl overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 text-xs font-semibold text-slate-600 bg-slate-50">
+              <tr className="border-b border-[#D5DCE8] dark:border-[#363D57] text-xs font-semibold text-[#4B556B] dark:text-[#B4BCD0] bg-[#EEF1F7] dark:bg-[#222638]">
                 <th className="py-3 px-4">Question</th>
                 <th className="py-3 px-4">Stage</th>
                 <th className="py-3 px-4">Streak</th>
@@ -62,22 +64,28 @@ export function ReviewQueueView() {
                 <th className="py-3 px-4">Next Review</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
+            <tbody className="divide-y divide-[#D5DCE8] dark:divide-[#363D57] text-sm">
               {items.map((item) => (
                 <tr key={item.id}>
-                  <td className="py-3 px-4 text-slate-900">
+                  <td className="py-3 px-4 text-[#1D2433] dark:text-[#E8EBF4]">
                     {item.question?.prompt ?? item.questionId}
                   </td>
-                  <td className="py-3 px-4 font-mono text-xs text-slate-600 tabular-nums">
+                  <td className="py-3 px-4 font-mono text-xs text-[#4B556B] dark:text-[#B4BCD0] tabular-nums">
                     {intervals[item.intervalStage] ?? '+7 days'}
                   </td>
-                  <td className="py-3 px-4 font-mono text-xs text-slate-900 tabular-nums">
+                  <td className="py-3 px-4 font-mono text-xs text-[#15803D] dark:text-[#4ADE80] tabular-nums font-semibold">
                     {item.consecutiveCorrect} / 2
                   </td>
-                  <td className="py-3 px-4 font-mono text-xs text-slate-600 tabular-nums">
+                  <td className="py-3 px-4 font-mono text-xs text-[#4B556B] dark:text-[#B4BCD0] tabular-nums">
                     {item.wrongCount}
                   </td>
-                  <td className="py-3 px-4 font-mono text-xs text-slate-600 tabular-nums">
+                  <td
+                    className={`py-3 px-4 font-mono text-xs tabular-nums ${
+                      item.isDue
+                        ? 'text-[#C2410C] dark:text-[#FB923C] font-semibold'
+                        : 'text-[#4B556B] dark:text-[#B4BCD0]'
+                    }`}
+                  >
                     {item.isDue ? 'Due now' : new Date(item.nextReviewAt).toLocaleString()}
                   </td>
                 </tr>

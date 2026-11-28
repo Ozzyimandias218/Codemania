@@ -3,9 +3,18 @@ import { ApiError, AuthUser, StoredSession, api } from '../lib/api.ts';
 
 interface AuthGateProps {
   onAuthenticated: (session: StoredSession) => void;
+  onOpenPrivacy: () => void;
 }
 
-export function AuthGate({ onAuthenticated }: AuthGateProps) {
+const PREVIEW_STEPS = [
+  { step: '01', title: 'Variables & Types', kind: 'Lesson', status: 'done' as const },
+  { step: '02', title: 'Expressions & Operators', kind: 'Lesson', status: 'done' as const },
+  { step: '03', title: 'Conditionals & Branching', kind: 'Lesson', status: 'active' as const },
+  { step: '04', title: 'Loops & Iteration', kind: 'Lesson', status: 'locked' as const },
+  { step: '05', title: 'Unit Foundations Quiz', kind: 'Sum-Up Quiz', status: 'milestone' as const },
+];
+
+export function AuthGate({ onAuthenticated, onOpenPrivacy }: AuthGateProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('learner@codemania.dev');
   const [password, setPassword] = useState('CodemaniaUser123!');
@@ -44,204 +53,248 @@ export function AuthGate({ onAuthenticated }: AuthGateProps) {
     }
   }
 
-  const [heroImgFailed, setHeroImgFailed] = useState(false);
-
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="grid gap-10 lg:grid-cols-12 items-stretch">
-        <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
-          <div className="space-y-4">
-            <p className="text-xs font-semibold text-blue-600">
-              Structured Programming Mastery
-            </p>
-            <h1
-              className="font-display text-4xl font-bold tracking-tight text-slate-900 leading-tight"
-              style={{ textWrap: 'balance' }}
-            >
-              Follow the coding road, master fundamentals, and stay accountable.
-            </h1>
-            <p className="text-base text-slate-600 leading-relaxed max-w-xl">
-              Progress unit by unit along interactive lesson paths, sum up every five steps with
-              targeted quizzes, reinforce mistakes via spaced repetition, and practice daily with
-              Aristotle.
-            </p>
+    <div className="grid gap-6 lg:grid-cols-12 items-stretch">
+      <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
+        <div className="space-y-4">
+          <h1
+            className="font-display text-4xl font-bold tracking-tight text-[#1D2433] dark:text-[#E8EBF4] leading-tight"
+            style={{ textWrap: 'balance' }}
+          >
+            Learn Python step by step with sum-up quizzes and spaced review.
+          </h1>
+          <p className="text-base text-[#4B556B] dark:text-[#B4BCD0] leading-relaxed max-w-xl">
+            Work through one unit at a time, check recall with a sum-up quiz every fifth step,
+            revisit missed questions on a scheduled review queue, and keep daily study habits.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-[#D5DCE8] dark:border-[#363D57] bg-white dark:bg-[#1A1D28] p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-[#D5DCE8] dark:border-[#363D57] pb-3">
+            <span className="font-display text-sm font-bold text-[#1D2433] dark:text-[#E8EBF4]">
+              Unit 1 Preview: Foundations
+            </span>
+            <span className="text-xs font-mono text-[#4B556B] dark:text-[#B4BCD0]">
+              Python Track
+            </span>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden aspect-16/9">
-            {!heroImgFailed ? (
-              <img
-                src="/src/assets/images/hero_course_roadmap_1795160958261.jpg"
-                alt="Architectural winding programming course path"
-                referrerPolicy="no-referrer"
-                onError={() => setHeroImgFailed(true)}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-linear-to-br from-slate-100 to-blue-50 flex items-center justify-center text-sm font-medium text-slate-600">
-                Interactive Course Road
+          <div className="divide-y divide-[#D5DCE8] dark:divide-[#363D57]">
+            {PREVIEW_STEPS.map((item) => (
+              <div
+                key={item.step}
+                className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0 text-xs"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono text-[11px] font-semibold shrink-0 ${
+                      item.status === 'done'
+                        ? 'bg-[#15803D] dark:bg-[#4ADE80] text-white dark:text-[#0B1F13]'
+                        : item.status === 'active'
+                          ? 'bg-[#4F46E5] text-white'
+                          : item.status === 'milestone'
+                            ? 'bg-[#F59E0B] text-[#1D2433]'
+                            : 'bg-[#EEF1F7] dark:bg-[#222638] text-[#4B556B] dark:text-[#B4BCD0]'
+                    }`}
+                  >
+                    {item.step}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-[#1D2433] dark:text-[#E8EBF4] truncate">
+                      {item.title}
+                    </div>
+                    <div className="text-[11px] text-[#4B556B] dark:text-[#B4BCD0]">
+                      {item.kind}
+                    </div>
+                  </div>
+                </div>
+                <span
+                  className={`font-mono text-[11px] font-semibold shrink-0 ${
+                    item.status === 'done'
+                      ? 'text-[#15803D] dark:text-[#4ADE80]'
+                      : item.status === 'active'
+                        ? 'text-[#4F46E5] dark:text-[#A5B4FC]'
+                        : item.status === 'milestone'
+                          ? 'text-[#B45309] dark:text-[#F59E0B]'
+                          : 'text-[#4B556B] dark:text-[#B4BCD0]'
+                  }`}
+                >
+                  {item.status === 'done'
+                    ? 'Done'
+                    : item.status === 'active'
+                      ? 'Current'
+                      : item.status === 'milestone'
+                        ? 'Quiz'
+                        : 'Locked'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="auth-card"
+        className="lg:col-span-5 bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-2xl p-6 flex flex-col justify-between"
+      >
+        <div>
+          <div className="flex items-center gap-1 p-1 bg-[#EEF1F7] dark:bg-[#222638] rounded-lg mb-6">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setError(null);
+              }}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                mode === 'login'
+                  ? 'bg-white dark:bg-[#1A1D28] text-[#1D2433] dark:text-[#E8EBF4]'
+                  : 'text-[#4B556B] dark:text-[#B4BCD0] hover:text-[#1D2433] dark:hover:text-[#E8EBF4]'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('register');
+                setError(null);
+              }}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                mode === 'register'
+                  ? 'bg-white dark:bg-[#1A1D28] text-[#1D2433] dark:text-[#E8EBF4]'
+                  : 'text-[#4B556B] dark:text-[#B4BCD0] hover:text-[#1D2433] dark:hover:text-[#E8EBF4]'
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'register' && (
+              <div>
+                <label className="block text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ada Lovelace"
+                  className="w-full px-3 py-2 text-sm bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                />
               </div>
             )}
-          </div>
 
-          <div className="grid grid-cols-3 gap-6 pt-4 border-t border-slate-200">
             <div>
-              <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">50</div>
-              <div className="text-xs text-slate-500 mt-1">Steps per track</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">5</div>
-              <div className="text-xs text-slate-500 mt-1">Lesson sum-up cadence</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">1·3·7d</div>
-              <div className="text-xs text-slate-500 mt-1">Review intervals</div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          id="auth-card"
-          className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg mb-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setError(null);
-                }}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
-                  mode === 'login'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('register');
-                  setError(null);
-                }}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
-                  mode === 'register'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Create Account
-              </button>
+              <label className="block text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+              />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {mode === 'register' && (
+            <div>
+              <label className="block text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+              />
+            </div>
+
+            {mode === 'register' && (
+              <>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Name</label>
+                  <label className="block text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] mb-1">
+                    Timezone
+                  </label>
                   <input
                     type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ada Lovelace"
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
                   />
                 </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
+                <label className="flex items-start gap-2.5 text-xs text-[#4B556B] dark:text-[#B4BCD0] cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={isAdult}
+                    onChange={(e) => setIsAdult(e.target.checked)}
+                    className="mt-0.5 rounded border-[#D5DCE8] dark:border-[#363D57] accent-[#4F46E5]"
+                  />
+                  <span>I confirm I am 18+ (required to create commitment contracts).</span>
+                </label>
+
+                <p className="text-[11px] text-[#4B556B] dark:text-[#B4BCD0]">
+                  By creating an account, you agree to our{' '}
+                  <button
+                    type="button"
+                    onClick={onOpenPrivacy}
+                    className="text-[#4F46E5] dark:text-[#A5B4FC] hover:underline font-medium"
+                  >
+                    Privacy Policy
+                  </button>
+                  .
+                </p>
+              </>
+            )}
+
+            {error && (
+              <div className="p-3 text-xs font-medium text-[#DC2626] dark:text-[#F87171] bg-[#EEF1F7] dark:bg-[#222638] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg">
+                {error}
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-              </div>
-
-              {mode === 'register' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Timezone
-                    </label>
-                    <input
-                      type="text"
-                      value={timezone}
-                      onChange={(e) => setTimezone(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer pt-1">
-                    <input
-                      type="checkbox"
-                      checked={isAdult}
-                      onChange={(e) => setIsAdult(e.target.checked)}
-                      className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                    />
-                    <span>I confirm I am 18+ (required to create commitment contracts).</span>
-                  </label>
-                </>
-              )}
-
-              {error && (
-                <div className="p-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg">
-                  {error}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 px-4 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors whitespace-nowrap"
-              >
-                {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
-              </button>
-            </form>
-          </div>
-
-          {mode === 'login' && (
-            <div className="mt-6 pt-4 border-t border-slate-100">
-              <p className="text-xs text-slate-500 mb-2">Quick fill demo credentials:</p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('learner@codemania.dev');
-                    setPassword('CodemaniaUser123!');
-                  }}
-                  className="flex-1 py-1.5 px-3 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
-                >
-                  Demo Learner
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('admin@codemania.dev');
-                    setPassword('CodemaniaAdmin123!');
-                  }}
-                  className="flex-1 py-1.5 px-3 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
-                >
-                  Demo Admin
-                </button>
-              </div>
-            </div>
-          )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 px-4 text-sm font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] disabled:bg-[#9CA3AF] dark:disabled:bg-[#374151] rounded-lg transition-colors whitespace-nowrap"
+            >
+              {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
         </div>
+
+        {mode === 'login' && (
+          <div className="mt-6 pt-4 border-t border-[#D5DCE8] dark:border-[#363D57]">
+            <p className="text-xs text-[#4B556B] dark:text-[#B4BCD0] mb-2">
+              Demo account presets:
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('learner@codemania.dev');
+                  setPassword('CodemaniaUser123!');
+                }}
+                className="flex-1 py-1.5 px-3 text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] bg-[#EEF1F7] dark:bg-[#222638] hover:bg-[#E2E7F2] dark:hover:bg-[#2E344D] rounded-md transition-colors whitespace-nowrap"
+              >
+                Demo Learner
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('admin@codemania.dev');
+                  setPassword('CodemaniaAdmin123!');
+                }}
+                className="flex-1 py-1.5 px-3 text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] bg-[#EEF1F7] dark:bg-[#222638] hover:bg-[#E2E7F2] dark:hover:bg-[#2E344D] rounded-md transition-colors whitespace-nowrap"
+              >
+                Demo Admin
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

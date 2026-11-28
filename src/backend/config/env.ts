@@ -7,14 +7,33 @@ dotenv.config();
 const nonEmptyOrUndefined = (val: unknown) =>
   typeof val === 'string' && val.trim() === '' ? undefined : val;
 
+const validPostgresUrlOrDefault = (val: unknown) => {
+  if (typeof val !== 'string') return undefined;
+  const trimmed = val.trim();
+  if (!trimmed) return undefined;
+  if (
+    trimmed.startsWith('postgresql://') ||
+    trimmed.startsWith('postgres://')
+  ) {
+    return trimmed;
+  }
+  return process.env.REQUIRE_POSTGRES === 'true' ? trimmed : undefined;
+};
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   APP_URL: z.preprocess(nonEmptyOrUndefined, z.string().url().default('http://localhost:3000')),
 
   DATABASE_URL: z.preprocess(
-    nonEmptyOrUndefined,
-    z.string().min(1).default('postgresql://postgres:postgres@localhost:5432/codemania?schema=public'),
+    validPostgresUrlOrDefault,
+    z
+      .string()
+      .refine(
+        (u) => u.startsWith('postgresql://') || u.startsWith('postgres://'),
+        'Must start with postgresql:// or postgres://',
+      )
+      .default('postgresql://postgres:postgres@localhost:5432/codemania?schema=public'),
   ),
   REDIS_URL: z.string().default(''),
 
@@ -59,7 +78,7 @@ const envSchema = z.object({
     z.string().default('http://localhost:3000/audio'),
   ),
 
-  // Daily Quiz: "Aristotle"
+  // Zugzwang ("Aristotle")
   DAILY_TZ: z.string().default('UTC'),
   DAILY_QUESTION_SECONDS: z.coerce.number().int().positive().default(60),
   DAILY_BUFFER_DAYS: z.coerce.number().int().positive().default(7),

@@ -170,7 +170,7 @@ adminRouter.post(
   asyncHandler((req, res) => adminController.refundDeposit(req, res)),
 );
 
-// Daily Quiz: Aristotle Admin Routes
+// Zugzwang ("Aristotle") Admin Routes
 adminRouter.get(
   '/daily/questions',
   validateQuery(listDailyQuestionsQuerySchema),

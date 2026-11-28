@@ -10,9 +10,11 @@ import { commitmentRouter } from './routes/commitment.routes.ts';
 import { dailyRouter, leaderboardRouter } from './routes/dailyQuiz.routes.ts';
 import { meRouter } from './routes/me.routes.ts';
 import { trackRouter } from './routes/track.routes.ts';
+import { tutorRouter } from './routes/tutor.routes.ts';
 import { voiceRouter } from './routes/voice.routes.ts';
 import { webhookRouter } from './routes/webhook.routes.ts';
 import { createSandboxFallbackRouter } from './runtime/sandboxFallback.ts';
+import { setWebhookSandboxMode } from './services/webhookLogStore.ts';
 
 export interface CreateAppOptions {
   useSandboxFallback?: boolean;
@@ -21,6 +23,7 @@ export interface CreateAppOptions {
 }
 
 export function createApp(options: CreateAppOptions = {}) {
+  setWebhookSandboxMode(Boolean(options.useSandboxFallback));
   const app = express();
   app.set('trust proxy', 1);
 
@@ -42,6 +45,7 @@ export function createApp(options: CreateAppOptions = {}) {
   if (options.useSandboxFallback) {
     app.use(createSandboxFallbackRouter());
   } else {
+    app.use('/api/tutor', tutorRouter);
     app.use('/auth', authRouter);
     app.use('/tracks', trackRouter);
     app.use('/levels', levelAttemptRouter);

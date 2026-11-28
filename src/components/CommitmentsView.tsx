@@ -8,7 +8,6 @@ export function CommitmentsView() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Create form state
   const [trackId, setTrackId] = useState('');
   const [durationDays, setDurationDays] = useState(20);
   const [mode, setMode] = useState<'SIMULATED' | 'DEPOSIT_REFUND' | 'PENALTY'>('SIMULATED');
@@ -22,7 +21,6 @@ export function CommitmentsView() {
     maxLevelsPerDay: number;
   } | null>(null);
 
-  // Final exam / project / appeal state
   const [activeExam, setActiveExam] = useState<{
     commitmentId: string;
     submissionId: string;
@@ -153,22 +151,26 @@ export function CommitmentsView() {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-12 items-start">
-      <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+    <div className="grid gap-6 lg:grid-cols-12 items-start">
+      <div className="lg:col-span-5 bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-xl p-6 space-y-4">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">New Commitment Contract</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h2 className="text-lg font-bold text-[#1D2433] dark:text-[#E8EBF4]">
+            New Commitment Contract
+          </h2>
+          <p className="text-xs text-[#4B556B] dark:text-[#B4BCD0] mt-0.5">
             Simulated mode computes and tracks penalties without calling Stripe.
           </p>
         </div>
 
         <form onSubmit={handleCreate} className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Track</label>
+            <label className="block text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] mb-1">
+              Track
+            </label>
             <select
               value={trackId}
               onChange={(e) => setTrackId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white"
+              className="w-full px-3 py-2 text-sm bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
             >
               {tracks.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -180,7 +182,7 @@ export function CommitmentsView() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] mb-1">
                 Duration (days)
               </label>
               <input
@@ -189,16 +191,18 @@ export function CommitmentsView() {
                 max={365}
                 value={durationDays}
                 onChange={(e) => setDurationDays(Number(e.target.value))}
-                className="w-full px-3 py-2 text-sm font-mono border border-slate-200 rounded-lg"
+                className="w-full px-3 py-2 text-sm font-mono bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Mode</label>
+              <label className="block text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] mb-1">
+                Mode
+              </label>
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as typeof mode)}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white"
+                className="w-full px-3 py-2 text-sm bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
               >
                 <option value="SIMULATED">SIMULATED</option>
                 <option value="PENALTY">PENALTY</option>
@@ -208,13 +212,13 @@ export function CommitmentsView() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="block text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] mb-1">
               Missed-Day Rule
             </label>
             <select
               value={missedDayMode}
               onChange={(e) => setMissedDayMode(e.target.value as typeof missedDayMode)}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white"
+              className="w-full px-3 py-2 text-sm bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
             >
               <option value="INACTIVE_DAYS">INACTIVE_DAYS (2 excused days default)</option>
               <option value="LATE_DAYS">LATE_DAYS (after deadline + 24h grace)</option>
@@ -223,7 +227,7 @@ export function CommitmentsView() {
 
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-[11px] font-medium text-slate-700 mb-1">
+              <label className="block text-[11px] font-medium text-[#4B556B] dark:text-[#B4BCD0] mb-1">
                 Daily (cents)
               </label>
               <input
@@ -231,11 +235,11 @@ export function CommitmentsView() {
                 min={0}
                 value={dailyPenaltyCents}
                 onChange={(e) => setDailyPenaltyCents(Number(e.target.value))}
-                className="w-full px-2.5 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                className="w-full px-2.5 py-2 text-xs font-mono bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-700 mb-1">
+              <label className="block text-[11px] font-medium text-[#4B556B] dark:text-[#B4BCD0] mb-1">
                 Final fail (cents)
               </label>
               <input
@@ -243,11 +247,11 @@ export function CommitmentsView() {
                 min={0}
                 value={finalFailPenaltyCents}
                 onChange={(e) => setFinalFailPenaltyCents(Number(e.target.value))}
-                className="w-full px-2.5 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                className="w-full px-2.5 py-2 text-xs font-mono bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-700 mb-1">
+              <label className="block text-[11px] font-medium text-[#4B556B] dark:text-[#B4BCD0] mb-1">
                 Max cap (cents)
               </label>
               <input
@@ -255,22 +259,23 @@ export function CommitmentsView() {
                 min={0}
                 value={maxTotalPenaltyCents}
                 onChange={(e) => setMaxTotalPenaltyCents(Number(e.target.value))}
-                className="w-full px-2.5 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                className="w-full px-2.5 py-2 text-xs font-mono bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg"
               />
             </div>
           </div>
 
           {pacePrompt && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2 text-xs text-amber-900">
+            <div className="p-3 bg-[#EEF1F7] dark:bg-[#222638] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg space-y-2 text-xs text-[#C2410C] dark:text-[#FB923C]">
               <p>
                 Pace warning: {pacePrompt.requiredLevelsPerDay} levels/day exceeds recommended max (
                 {pacePrompt.maxLevelsPerDay} levels/day).
               </p>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
+              <label className="flex items-center gap-2 cursor-pointer font-medium text-[#1D2433] dark:text-[#E8EBF4]">
                 <input
                   type="checkbox"
                   checked={acknowledgePace}
                   onChange={(e) => setAcknowledgePace(e.target.checked)}
+                  className="accent-[#F97316]"
                 />
                 <span>I acknowledge this pace and want to proceed</span>
               </label>
@@ -278,19 +283,19 @@ export function CommitmentsView() {
           )}
 
           {error && (
-            <div className="p-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-3 text-xs font-medium text-[#DC2626] dark:text-[#F87171] bg-[#EEF1F7] dark:bg-[#222638] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg">
               {error}
             </div>
           )}
           {notice && (
-            <div className="p-3 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <div className="p-3 text-xs font-medium text-[#15803D] dark:text-[#4ADE80] bg-[#EEF1F7] dark:bg-[#222638] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg">
               {notice}
             </div>
           )}
 
           <button
             type="submit"
-            className="w-full py-2.5 px-4 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+            className="w-full py-2.5 px-4 text-sm font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] rounded-lg transition-colors"
           >
             Create Commitment
           </button>
@@ -301,35 +306,41 @@ export function CommitmentsView() {
         {activeExam && (
           <form
             onSubmit={handleSubmitExam}
-            className="bg-white border border-blue-200 rounded-xl p-5 space-y-4"
+            className="bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-xl p-6 space-y-4"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-semibold text-slate-900">
+            <div className="flex items-center justify-between border-b border-[#D5DCE8] dark:border-[#363D57] pb-3">
+              <h3 className="text-base font-semibold text-[#1D2433] dark:text-[#E8EBF4]">
                 Final Exam (60% to pass)
               </h3>
               <button
                 type="button"
                 onClick={() => setActiveExam(null)}
-                className="text-xs text-slate-500 hover:text-slate-900"
+                className="text-xs text-[#4B556B] dark:text-[#B4BCD0] hover:text-[#1D2433] dark:hover:text-[#E8EBF4]"
               >
                 Cancel
               </button>
             </div>
             <div className="space-y-4">
               {activeExam.questions.map((q, i) => (
-                <div key={q.id} className="space-y-2 pb-3 border-b border-slate-100 last:border-0">
-                  <p className="text-sm font-medium text-slate-900">
+                <div
+                  key={q.id}
+                  className="space-y-2 pb-3 border-b border-[#D5DCE8] dark:border-[#363D57] last:border-0"
+                >
+                  <p className="text-sm font-medium text-[#1D2433] dark:text-[#E8EBF4]">
                     {i + 1}. {q.prompt}
                   </p>
                   {q.codeSnippet && (
-                    <pre className="p-2.5 bg-slate-900 text-slate-100 rounded-lg text-xs font-mono">
+                    <pre className="p-2.5 bg-[#12141C] text-[#E8EBF4] border border-[#363D57] rounded-lg text-xs font-mono">
                       {q.codeSnippet}
                     </pre>
                   )}
                   {q.type === 'MULTIPLE_CHOICE' && q.options ? (
                     <div className="grid gap-1.5">
                       {q.options.map((opt, idx) => (
-                        <label key={idx} className="flex items-center gap-2 text-xs cursor-pointer">
+                        <label
+                          key={idx}
+                          className="flex items-center gap-2 text-xs text-[#1D2433] dark:text-[#E8EBF4] cursor-pointer"
+                        >
                           <input
                             type="radio"
                             name={`exam-${q.id}`}
@@ -338,6 +349,7 @@ export function CommitmentsView() {
                             onChange={(e) =>
                               setExamAnswers({ ...examAnswers, [q.id]: e.target.value })
                             }
+                            className="accent-[#4F46E5]"
                           />
                           <span>{opt}</span>
                         </label>
@@ -350,7 +362,7 @@ export function CommitmentsView() {
                       onChange={(e) =>
                         setExamAnswers({ ...examAnswers, [q.id]: e.target.value })
                       }
-                      className="w-full px-3 py-1.5 text-xs font-mono border border-slate-200 rounded-lg"
+                      className="w-full px-3 py-1.5 text-xs font-mono bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg"
                     />
                   )}
                 </div>
@@ -358,7 +370,7 @@ export function CommitmentsView() {
             </div>
             <button
               type="submit"
-              className="w-full py-2 px-4 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+              className="w-full py-2 px-4 text-sm font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] rounded-lg transition-colors"
             >
               Submit Final Exam
             </button>
@@ -366,25 +378,38 @@ export function CommitmentsView() {
         )}
 
         {loading ? (
-          <div className="p-6 bg-white border border-slate-200 rounded-xl text-sm text-slate-500">
+          <div className="p-6 bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-xl text-sm text-[#4B556B] dark:text-[#B4BCD0]">
             Loading commitments...
           </div>
         ) : commitments.length === 0 ? (
-          <div className="p-8 bg-white border border-slate-200 rounded-xl text-sm text-slate-600">
+          <div className="p-6 bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-xl text-sm text-[#4B556B] dark:text-[#B4BCD0]">
             No commitments yet. Create a simulated contract on the left to test pace checks,
             penalties, final exams, and appeals.
           </div>
         ) : (
           commitments.map((c) => (
-            <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div
+              key={c.id}
+              className="bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-xl p-6 space-y-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D5DCE8] dark:border-[#363D57] pb-3">
                 <div>
-                  <h3 className="text-base font-semibold text-slate-900">
+                  <h3 className="text-base font-semibold text-[#1D2433] dark:text-[#E8EBF4]">
                     {c.track?.title ?? 'Track'} · {c.durationDays} days
                   </h3>
-                  <p className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
+                  <p className="text-xs text-[#4B556B] dark:text-[#B4BCD0] font-mono tabular-nums mt-0.5">
                     {c.mode} · {c.missedDayMode} · {c.requiredLevelsPerDay} levels/day · Status:{' '}
-                    {c.status}
+                    <span
+                      className={
+                        c.status === 'CLOSED' || c.status === 'ACTIVE'
+                          ? 'text-[#15803D] dark:text-[#4ADE80] font-semibold'
+                          : c.status === 'PENALTY_DUE'
+                            ? 'text-[#DC2626] dark:text-[#F87171] font-semibold'
+                            : ''
+                      }
+                    >
+                      {c.status}
+                    </span>
                     {c.hasActiveAppeal ? ' · APPEAL FROZEN' : ''}
                   </p>
                 </div>
@@ -392,7 +417,7 @@ export function CommitmentsView() {
                   <button
                     type="button"
                     onClick={() => void handleStartExam(c.id)}
-                    className="px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg whitespace-nowrap"
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] rounded-lg whitespace-nowrap"
                   >
                     Take Final Exam
                   </button>
@@ -406,12 +431,12 @@ export function CommitmentsView() {
                     placeholder="https://github.com/you/project"
                     value={projectUrls[c.id] ?? ''}
                     onChange={(e) => setProjectUrls({ ...projectUrls, [c.id]: e.target.value })}
-                    className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg"
+                    className="flex-1 px-2.5 py-1.5 bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg"
                   />
                   <button
                     type="button"
                     onClick={() => void handleSubmitProject(c.id)}
-                    className="px-3 py-1.5 font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg whitespace-nowrap"
+                    className="px-3 py-1.5 font-medium text-[#1D2433] dark:text-[#E8EBF4] bg-[#EEF1F7] dark:bg-[#222638] hover:bg-[#E2E7F2] dark:hover:bg-[#2E344D] rounded-lg whitespace-nowrap"
                   >
                     Submit Project
                   </button>
@@ -425,12 +450,12 @@ export function CommitmentsView() {
                     onChange={(e) =>
                       setAppealReasons({ ...appealReasons, [c.id]: e.target.value })
                     }
-                    className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg"
+                    className="flex-1 px-2.5 py-1.5 bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg"
                   />
                   <button
                     type="button"
                     onClick={() => void handleAppeal(c.id)}
-                    className="px-3 py-1.5 font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg whitespace-nowrap"
+                    className="px-3 py-1.5 font-medium text-[#C2410C] dark:text-[#FB923C] bg-[#EEF1F7] dark:bg-[#222638] hover:bg-[#E2E7F2] dark:hover:bg-[#2E344D] rounded-lg whitespace-nowrap"
                   >
                     File Appeal
                   </button>
@@ -438,7 +463,7 @@ export function CommitmentsView() {
               </div>
 
               {c.finalSubmissions.length > 0 && (
-                <div className="text-xs text-slate-600 space-y-1 pt-2 border-t border-slate-100">
+                <div className="text-xs text-[#4B556B] dark:text-[#B4BCD0] space-y-1 pt-2 border-t border-[#D5DCE8] dark:border-[#363D57]">
                   {c.finalSubmissions.map((s) => (
                     <div key={s.id} className="font-mono">
                       {s.type} #{s.attemptNumber} · {s.status}

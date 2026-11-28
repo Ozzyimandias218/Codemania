@@ -75,7 +75,7 @@ export class AdminController {
     res.status(200).json(refund);
   }
 
-  // Daily Quiz: Aristotle Admin Operations
+  // Zugzwang ("Aristotle") Admin Operations
   async listDailyQuestions(req: AuthenticatedRequest, res: Response): Promise<void> {
     const status = req.query.status as DailyQuestionStatus | undefined;
     const isReserve =

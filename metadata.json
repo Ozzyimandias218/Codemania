@@ -2,5 +2,7 @@
   "name": "Codemania Backend",
   "description": "Backend API for Codemania, a gamified programming-learning platform with tracks, checkpoints, spaced repetition review queue, commitment contracts, Stripe billing, and async voice-over generation.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -1,3 +1,4 @@
+import net from 'node:net';
 import path from 'node:path';
 import { createApp } from './src/backend/app.ts';
 import { env } from './src/backend/config/env.ts';
@@ -5,8 +6,39 @@ import { prisma } from './src/backend/config/prisma.ts';
 import { closeRedisConnection } from './src/backend/config/redis.ts';
 import { startWorkers, stopWorkers } from './src/backend/jobs/workers.ts';
 
+function isTcpReachable(host: string, port: number, timeoutMs = 1000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    let done = false;
+    const finish = (ok: boolean) => {
+      if (done) return;
+      done = true;
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.on('connect', () => finish(true));
+    socket.on('timeout', () => finish(false));
+    socket.on('error', () => finish(false));
+  });
+}
+
 async function isDatabaseReachable(): Promise<boolean> {
+  const rawUrl = process.env.DATABASE_URL?.trim();
+  if (!rawUrl || (!rawUrl.startsWith('postgresql://') && !rawUrl.startsWith('postgres://'))) {
+    if (process.env.REQUIRE_POSTGRES !== 'true') {
+      return false;
+    }
+  }
+
   try {
+    const parsed = new URL(env.DATABASE_URL);
+    const port = parsed.port ? Number(parsed.port) : 5432;
+    const tcpOk = await isTcpReachable(parsed.hostname, port, 1000);
+    if (!tcpOk) {
+      return false;
+    }
+
     await Promise.race([
       prisma.$queryRaw`SELECT 1`,
       new Promise((_, reject) => setTimeout(() => reject(new Error('DB ping timeout')), 1500)),
@@ -62,7 +94,9 @@ async function bootstrap() {
       if (viteClose) await viteClose();
       await stopWorkers();
       await closeRedisConnection();
-      await prisma.$disconnect();
+      if (!useSandboxFallback) {
+        await prisma.$disconnect();
+      }
       process.exit(0);
     });
   };

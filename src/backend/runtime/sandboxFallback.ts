@@ -27,8 +27,10 @@ import { env, getAdminEmailSet } from '../config/env.ts';
 import { AuthenticatedRequest, requireAdmin, requireAuth } from '../middleware/auth.middleware.ts';
 import { asyncHandler } from '../middleware/error.middleware.ts';
 import { validateBody } from '../middleware/validate.middleware.ts';
+import { tutorRateLimiter } from '../middleware/rateLimit.middleware.ts';
 import { validateQuestionContentRules } from '../services/admin.service.ts';
 import { selectCheckpointQuestions } from '../services/checkpoint.service.ts';
+import { getPythonCodingChallenge } from '../services/codingLessons.ts';
 import {
   FINAL_EXAM_PASS_MARK,
   MAX_FINAL_EXAM_ATTEMPTS,
@@ -42,11 +44,14 @@ import {
   getEffectiveStreak,
   getPassMarkForLevelType,
 } from '../services/game.service.ts';
+import { runPythonTestCases } from '../services/pythonRunner.service.ts';
 import {
   evaluateTrackUnlock,
   isLevelUnlocked,
   sanitizePublicQuestion,
 } from '../services/track.service.ts';
+import { tutorService } from '../services/tutor.service.ts';
+import { tutorSubmitSchema } from '../routes/tutor.routes.ts';
 import {
   buildExplanationTranscript,
   buildQuestionPromptTranscript,
@@ -1870,7 +1875,7 @@ export function createSandboxFallbackRouter(): Router {
   );
 
   // ==========================================
-  // 13. DAILY QUIZ: "ARISTOTLE" (Sandbox MVP)
+  // 13. ZUGZWANG: "ARISTOTLE" (Sandbox MVP)
   // ==========================================
   const dailyQuizzes = new Map<string, MemDailyQuiz>();
   const dailyQuestions: MemDailyQuestion[] = [];
@@ -1886,7 +1891,7 @@ export function createSandboxFallbackRouter(): Router {
       {
         id: 'tpl-intro',
         key: AristotleTemplateKey.INTRO,
-        title: 'Aristotle Daily Intro',
+        title: 'Aristotle Zugzwang Intro',
         body: 'Greetings, scholar. Today is {{quizDate}}. Seven sharp questions await you, each within {{timeLimitSeconds}} seconds.',
         language: 'en',
         voiceId: 'aristotle',
@@ -1911,7 +1916,7 @@ export function createSandboxFallbackRouter(): Router {
         id: 'tpl-incorrect',
         key: AristotleTemplateKey.FEEDBACK_INCORRECT,
         title: 'Aristotle Incorrect Feedback',
-        body: 'Not quite on question {{position}} — you scored {{score}} points. {{explanation}}',
+        body: 'Not quite on question {{position}}: you scored {{score}} points. {{explanation}}',
         language: 'en',
         voiceId: 'aristotle',
         updatedAt: new Date(),
@@ -1943,7 +1948,7 @@ export function createSandboxFallbackRouter(): Router {
     ],
   ]);
 
-  // Seed realistic daily quiz questions for today + next 7 days + 21 reserve + 1 AI DRAFT
+  // Seed realistic Zugzwang questions for today + next 7 days + 21 reserve + 1 AI DRAFT
   const todaySeedDate = formatDateInTimezone(new Date(), env.DAILY_TZ);
   const seedDailyCatalog: Array<{
     type: DailyQuestionType;
@@ -2228,7 +2233,7 @@ export function createSandboxFallbackRouter(): Router {
       adminAlerts.unshift({
         id: crypto.randomUUID(),
         type: 'RESERVE_FALLBACK_USED',
-        message: `Daily quiz for ${quizDate} assembled from reserve pool (${needed} questions).`,
+        message: `Zugzwang for ${quizDate} assembled from reserve pool (${needed} questions).`,
         quizDate,
         resolvedAt: null,
         createdAt: now,
@@ -2303,7 +2308,7 @@ export function createSandboxFallbackRouter(): Router {
       const intro = renderMemTemplate(
         AristotleTemplateKey.INTRO,
         { quizDate: todayDate, questionCount: DAILY_QUIZ_QUESTION_COUNT, timeLimitSeconds: env.DAILY_QUESTION_SECONDS },
-        'Welcome to Aristotle Daily Quiz.',
+        'Welcome to Zugzwang.',
       );
 
       if (!attempt) {
@@ -2366,7 +2371,7 @@ export function createSandboxFallbackRouter(): Router {
       }
       const { quiz, approvedQuestions } = ensureSandboxLiveQuiz(todayDate, now);
       if (!quiz || approvedQuestions.length !== DAILY_QUIZ_QUESTION_COUNT) {
-        throw new ConflictError('Daily quiz is unavailable right now', 'DAILY_QUIZ_UNAVAILABLE');
+        throw new ConflictError('Zugzwang is unavailable right now', 'DAILY_QUIZ_UNAVAILABLE');
       }
       const firstQ = approvedQuestions.find((q) => q.position === 1);
       if (!firstQ) throw new ConflictError('Question 1 missing', 'DAILY_QUIZ_UNAVAILABLE');
@@ -2389,7 +2394,7 @@ export function createSandboxFallbackRouter(): Router {
       const intro = renderMemTemplate(
         AristotleTemplateKey.INTRO,
         { quizDate: todayDate, questionCount: DAILY_QUIZ_QUESTION_COUNT, timeLimitSeconds: env.DAILY_QUESTION_SECONDS },
-        'Welcome to Aristotle Daily Quiz.',
+        'Welcome to Zugzwang.',
       );
 
       res.status(201).json({
@@ -2587,7 +2592,7 @@ export function createSandboxFallbackRouter(): Router {
           ? req.query.quizDate
           : formatDateInTimezone(now, env.DAILY_TZ);
       const attempt = dailyAttempts.get(`${req.user!.userId}:${quizDate}`);
-      if (!attempt) throw new NotFoundError(`No daily quiz attempt for ${quizDate}`);
+      if (!attempt) throw new NotFoundError(`No Zugzwang attempt for ${quizDate}`);
       if (!attempt.finishedAt) {
         throw new ForbiddenError('Results are locked until all 7 questions are answered', 'DAILY_RESULT_LOCKED');
       }
@@ -2741,7 +2746,7 @@ export function createSandboxFallbackRouter(): Router {
     }),
   );
 
-  // Admin Daily Quiz endpoints in Sandbox
+  // Admin Zugzwang endpoints in Sandbox
   router.get(
     '/admin/daily/questions',
     requireAuth,
@@ -3003,6 +3008,202 @@ export function createSandboxFallbackRouter(): Router {
       if (!a) throw new NotFoundError('Alert not found');
       a.resolvedAt = new Date();
       res.status(200).json(a);
+    }),
+  );
+
+  router.get(
+    '/api/tutor/challenge/:levelId',
+    requireAuth,
+    asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+      const userId = req.user!.userId;
+      const level = levels.find((l) => l.id === req.params.levelId);
+      if (!level) throw new NotFoundError('Level not found');
+      const track = tracks.find((t) => t.id === level.trackId)!;
+      if (track.slug !== 'python') {
+        throw new BadRequestError('Python AI Code Tutor is available for Python track steps.');
+      }
+
+      const passedNumbers = new Set(
+        Array.from(progress.entries())
+          .filter(([k, p]) => k.startsWith(`${userId}:`) && p.trackId === track.id)
+          .map(([, p]) => p.levelNumber),
+      );
+      if (!isLevelUnlocked(level.number, true, passedNumbers)) {
+        throw new ForbiddenError(
+          `Level ${level.number} is locked until level ${level.number - 1} is passed`,
+          'LEVEL_LOCKED',
+        );
+      }
+
+      const challenge = getPythonCodingChallenge(level.number);
+      res.status(200).json({
+        levelId: level.id,
+        levelNumber: level.number,
+        levelTitle: challenge.title,
+        trackSlug: track.slug,
+        lessonGoal: challenge.lessonGoal,
+        starterCode: challenge.starterCode,
+        testCases: challenge.testCases.map((t) => ({
+          id: t.id,
+          description: t.description,
+          expected: t.expectedDisplay,
+        })),
+      });
+    }),
+  );
+
+  router.post(
+    '/api/tutor',
+    requireAuth,
+    tutorRateLimiter,
+    validateBody(tutorSubmitSchema),
+    asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+      const userId = req.user!.userId;
+      const { levelId, code } = req.body as z.infer<typeof tutorSubmitSchema>;
+
+      const level = levels.find((l) => l.id === levelId);
+      if (!level) throw new NotFoundError('Level not found');
+      const track = tracks.find((t) => t.id === level.trackId)!;
+      if (track.slug !== 'python') {
+        throw new BadRequestError('Python AI Code Tutor is available for Python track steps.');
+      }
+      const user = users.get(userId);
+      if (!user) throw new NotFoundError('User not found');
+
+      const passedNumbers = new Set(
+        Array.from(progress.entries())
+          .filter(([k, p]) => k.startsWith(`${userId}:`) && p.trackId === track.id)
+          .map(([, p]) => p.levelNumber),
+      );
+      if (!isLevelUnlocked(level.number, true, passedNumbers)) {
+        throw new ForbiddenError(
+          `Level ${level.number} is locked until level ${level.number - 1} is passed`,
+          'LEVEL_LOCKED',
+        );
+      }
+
+      const challenge = getPythonCodingChallenge(level.number);
+      const runResult = await runPythonTestCases(code, challenge.testCases);
+      const tutor = await tutorService.evaluateSubmission({
+        lessonGoal: challenge.lessonGoal,
+        levelTitle: challenge.title,
+        code,
+        runResult,
+      });
+
+      const now = new Date();
+      const scorePct = tutor.score / 100;
+      const pKey = `${userId}:${level.id}`;
+      const existingProgress = progress.get(pKey);
+      const nextLevel = levels.find(
+        (l) => l.trackId === track.id && l.number === level.number + 1,
+      );
+
+      let levelPassed = Boolean(existingProgress);
+      let newlyCompleted = false;
+      let xpAwarded = 0;
+      let pointAwarded = false;
+      let reviewEnqueued = false;
+      let streakRes = {
+        current: user.currentStreak,
+        longest: user.longestStreak,
+        incrementedToday: false,
+      };
+
+      if (tutor.nextAction === 'advance' && runResult.allPassed) {
+        const isFirstCompletion = !existingProgress;
+        const awardedXp = isFirstCompletion ? getCompletionXpForLevelType(level.type) : 0;
+
+        progress.set(pKey, {
+          levelId: level.id,
+          trackId: level.trackId,
+          levelNumber: level.number,
+          viaPlacement: false,
+          bestScorePct: Math.max(existingProgress?.bestScorePct ?? 0, scorePct),
+          passedAt: now,
+        });
+
+        if (awardedXp > 0) {
+          user.xp += awardedXp;
+        }
+
+        const nextStreak = calculateStreakUpdate({
+          currentStreak: user.currentStreak,
+          longestStreak: user.longestStreak,
+          lastStreakDate: user.lastStreakDate,
+          timezone: user.timezone,
+          now,
+        });
+        user.currentStreak = nextStreak.currentStreak;
+        user.longestStreak = nextStreak.longestStreak;
+        user.lastStreakDate = nextStreak.lastStreakDate;
+
+        if (
+          level.number % 10 === 0 &&
+          !pointEvents.some(
+            (e) => e.userId === userId && e.trackId === track.id && e.levelNumber === level.number,
+          )
+        ) {
+          pointEvents.push({
+            id: crypto.randomUUID(),
+            userId,
+            trackId: track.id,
+            trackSlug: track.slug,
+            levelNumber: level.number,
+            points: 1,
+            createdAt: now,
+          });
+          pointAwarded = true;
+        }
+
+        levelPassed = true;
+        newlyCompleted = isFirstCompletion;
+        xpAwarded = awardedXp;
+        streakRes = {
+          current: nextStreak.currentStreak,
+          longest: nextStreak.longestStreak,
+          incrementedToday: nextStreak.incremented,
+        };
+      } else if (tutor.nextAction === 'review') {
+        const lvlQ = questions.find(
+          (q) => q.levelId === level.id && q.status === QuestionStatus.APPROVED && q.isLatest,
+        );
+        if (lvlQ) {
+          const rqKey = `${userId}:${lvlQ.id}`;
+          if (!reviewQueue.has(rqKey)) {
+            reviewQueue.set(rqKey, {
+              id: crypto.randomUUID(),
+              userId,
+              questionId: lvlQ.id,
+              wrongCount: 1,
+              consecutiveCorrect: 0,
+              intervalStage: 0,
+              nextReviewAt: now,
+              lastReviewedAt: now,
+            });
+            reviewEnqueued = true;
+          }
+        }
+      }
+
+      res.status(200).json({
+        levelId: level.id,
+        levelNumber: level.number,
+        lessonGoal: challenge.lessonGoal,
+        testResults: runResult,
+        tutor,
+        progressUpdate: {
+          levelPassed,
+          newlyCompleted,
+          xpAwarded,
+          totalXp: user.xp,
+          pointAwarded,
+          streak: streakRes,
+          nextLevelId: nextLevel?.id ?? null,
+          nextLevelNumber: nextLevel?.number ?? null,
+          reviewEnqueued,
+        },
+      });
     }),
   );
 

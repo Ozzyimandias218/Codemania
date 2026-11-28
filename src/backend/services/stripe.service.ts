@@ -1,10 +1,11 @@
-import { CommitmentMode, CommitmentStatus } from '@prisma/client';
+import { CommitmentMode, CommitmentStatus, StripeWebhookEventStatus } from '@prisma/client';
 import Stripe from 'stripe';
 import { env } from '../config/env.ts';
 import { jobDispatcher } from '../jobs/queues.ts';
 import { commitmentRepository } from '../repositories/commitment.repository.ts';
 import { userRepository } from '../repositories/user.repository.ts';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../utils/errors.ts';
+import { StripeWebhookListFilters } from './webhookLogStore.ts';
 
 export const PENALTY_RETRY_DELAYS_MS = [
   2 * 24 * 60 * 60 * 1000, // Retry 1: +2 days
@@ -330,96 +331,159 @@ export class StripeService {
 
     const isNew = await commitmentRepository.recordWebhookEventIfNew(event.id, event.type);
     if (!isNew) {
+      await commitmentRepository.markWebhookEventDuplicate(event.id).catch(() => undefined);
       return { received: true, duplicate: true };
     }
 
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const commitment = await commitmentRepository.findByCheckoutSessionId(session.id);
-        if (commitment && commitment.mode !== CommitmentMode.SIMULATED) {
-          const setupIntentId =
-            typeof session.setup_intent === 'string'
-              ? session.setup_intent
-              : session.setup_intent?.id ?? null;
+    let status: StripeWebhookEventStatus = StripeWebhookEventStatus.PROCESSED;
+    let commitmentId: string | null = null;
+    let summary = `Processed ${event.type}`;
 
-          await commitmentRepository.update(commitment.id, {
-            stripeSetupIntentId: setupIntentId,
-            status: CommitmentStatus.ACTIVE,
-          });
-        }
-        break;
-      }
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const commitment = await commitmentRepository.findByCheckoutSessionId(session.id);
+          if (commitment && commitment.mode !== CommitmentMode.SIMULATED) {
+            const setupIntentId =
+              typeof session.setup_intent === 'string'
+                ? session.setup_intent
+                : session.setup_intent?.id ?? null;
 
-      case 'setup_intent.succeeded': {
-        const si = event.data.object as Stripe.SetupIntent;
-        const paymentMethodId =
-          typeof si.payment_method === 'string'
-            ? si.payment_method
-            : si.payment_method?.id ?? null;
-        const commitmentId = si.metadata?.commitmentId;
-        const commitment = commitmentId
-          ? await commitmentRepository.findById(commitmentId)
-          : await commitmentRepository.findBySetupIntentId(si.id);
-        if (commitment && paymentMethodId && commitment.mode !== CommitmentMode.SIMULATED) {
-          await commitmentRepository.update(commitment.id, {
-            stripeSetupIntentId: si.id,
-            stripePaymentMethodId: paymentMethodId,
-            status:
-              commitment.status === CommitmentStatus.PENDING_PAYMENT_METHOD
-                ? CommitmentStatus.ACTIVE
-                : commitment.status,
-          });
-
-          if (
-            commitment.mode === CommitmentMode.DEPOSIT_REFUND &&
-            commitment.depositCents &&
-            commitment.depositCents > 0 &&
-            !commitment.stripeDepositPaymentIntentId &&
-            commitment.stripeCustomerId
-          ) {
-            const depositPi = await this.gateway.createDepositPaymentIntent({
-              customerId: commitment.stripeCustomerId,
-              paymentMethodId,
-              amountCents: commitment.depositCents,
-              currency: commitment.currency,
-              commitmentId: commitment.id,
-            });
             await commitmentRepository.update(commitment.id, {
-              stripeDepositPaymentIntentId: depositPi.id,
+              stripeSetupIntentId: setupIntentId,
+              status: CommitmentStatus.ACTIVE,
             });
+            commitmentId = commitment.id;
+            summary = `Activated commitment ${commitment.id} after Checkout setup completed`;
+          } else {
+            status = StripeWebhookEventStatus.IGNORED;
+            commitmentId = commitment?.id ?? null;
+            summary = commitment
+              ? `Ignored checkout.session.completed for SIMULATED commitment ${commitment.id}`
+              : `No matching commitment found for checkout session ${session.id}`;
           }
+          break;
         }
-        break;
+
+        case 'setup_intent.succeeded': {
+          const si = event.data.object as Stripe.SetupIntent;
+          const paymentMethodId =
+            typeof si.payment_method === 'string'
+              ? si.payment_method
+              : si.payment_method?.id ?? null;
+          const metaCommitmentId = si.metadata?.commitmentId;
+          const commitment = metaCommitmentId
+            ? await commitmentRepository.findById(metaCommitmentId)
+            : await commitmentRepository.findBySetupIntentId(si.id);
+          if (commitment && paymentMethodId && commitment.mode !== CommitmentMode.SIMULATED) {
+            commitmentId = commitment.id;
+            await commitmentRepository.update(commitment.id, {
+              stripeSetupIntentId: si.id,
+              stripePaymentMethodId: paymentMethodId,
+              status:
+                commitment.status === CommitmentStatus.PENDING_PAYMENT_METHOD
+                  ? CommitmentStatus.ACTIVE
+                  : commitment.status,
+            });
+
+            if (
+              commitment.mode === CommitmentMode.DEPOSIT_REFUND &&
+              commitment.depositCents &&
+              commitment.depositCents > 0 &&
+              !commitment.stripeDepositPaymentIntentId &&
+              commitment.stripeCustomerId
+            ) {
+              const depositPi = await this.gateway.createDepositPaymentIntent({
+                customerId: commitment.stripeCustomerId,
+                paymentMethodId,
+                amountCents: commitment.depositCents,
+                currency: commitment.currency,
+                commitmentId: commitment.id,
+              });
+              await commitmentRepository.update(commitment.id, {
+                stripeDepositPaymentIntentId: depositPi.id,
+              });
+              summary = `Attached payment method ${paymentMethodId} and captured deposit ${depositPi.id}`;
+            } else {
+              summary = `Attached payment method ${paymentMethodId} to commitment ${commitment.id}`;
+            }
+          } else {
+            status = StripeWebhookEventStatus.IGNORED;
+            commitmentId = commitment?.id ?? metaCommitmentId ?? null;
+            summary = `Ignored setup_intent.succeeded (${si.id})`;
+          }
+          break;
+        }
+
+        case 'payment_intent.succeeded': {
+          const pi = event.data.object as Stripe.PaymentIntent;
+          const commitment = await commitmentRepository.findByPaymentIntentId(pi.id);
+          if (commitment && commitment.stripePenaltyPaymentIntentId === pi.id) {
+            commitmentId = commitment.id;
+            await commitmentRepository.update(commitment.id, {
+              status: CommitmentStatus.CLOSED,
+              closedAt: new Date(),
+              needsAdminAttention: false,
+            });
+            summary = `Settled penalty PaymentIntent ${pi.id} and marked commitment CLOSED`;
+          } else {
+            status = StripeWebhookEventStatus.IGNORED;
+            commitmentId = commitment?.id ?? null;
+            summary = `Ignored payment_intent.succeeded (${pi.id}) not linked to close penalty`;
+          }
+          break;
+        }
+
+        case 'payment_intent.payment_failed': {
+          const pi = event.data.object as Stripe.PaymentIntent;
+          const commitment = await commitmentRepository.findByPaymentIntentId(pi.id);
+          if (commitment && commitment.stripePenaltyPaymentIntentId === pi.id) {
+            commitmentId = commitment.id;
+            await this.handleFailedPenaltyCharge(commitment.id, commitment.penaltyRetryCount);
+            summary = `Recorded penalty charge failure for commitment ${commitment.id} (retry ${commitment.penaltyRetryCount + 1})`;
+          } else {
+            status = StripeWebhookEventStatus.IGNORED;
+            commitmentId = commitment?.id ?? null;
+            summary = `Ignored payment_intent.payment_failed (${pi.id})`;
+          }
+          break;
+        }
+
+        default:
+          status = StripeWebhookEventStatus.IGNORED;
+          summary = `Ignored unhandled Stripe event type ${event.type}`;
+          break;
       }
 
-      case 'payment_intent.succeeded': {
-        const pi = event.data.object as Stripe.PaymentIntent;
-        const commitment = await commitmentRepository.findByPaymentIntentId(pi.id);
-        if (commitment && commitment.stripePenaltyPaymentIntentId === pi.id) {
-          await commitmentRepository.update(commitment.id, {
-            status: CommitmentStatus.CLOSED,
-            closedAt: new Date(),
-            needsAdminAttention: false,
-          });
-        }
-        break;
-      }
+      await commitmentRepository
+        .updateWebhookEventResult(event.id, {
+          status,
+          commitmentId,
+          summary,
+          errorMessage: null,
+          processedAt: new Date(),
+        })
+        .catch(() => undefined);
 
-      case 'payment_intent.payment_failed': {
-        const pi = event.data.object as Stripe.PaymentIntent;
-        const commitment = await commitmentRepository.findByPaymentIntentId(pi.id);
-        if (commitment && commitment.stripePenaltyPaymentIntentId === pi.id) {
-          await this.handleFailedPenaltyCharge(commitment.id, commitment.penaltyRetryCount);
-        }
-        break;
-      }
-
-      default:
-        break;
+      return { received: true, duplicate: false };
+    } catch (err) {
+      const errorMessage = (err instanceof Error ? err.message : String(err)).slice(0, 500);
+      await commitmentRepository
+        .updateWebhookEventResult(event.id, {
+          status: StripeWebhookEventStatus.FAILED,
+          commitmentId,
+          summary: `Failed while processing ${event.type}`,
+          errorMessage,
+          processedAt: new Date(),
+        })
+        .catch(() => undefined);
+      throw err;
     }
+  }
 
-    return { received: true, duplicate: false };
+  async listWebhookEvents(filters: StripeWebhookListFilters) {
+    return commitmentRepository.listWebhookEvents(filters);
   }
 }
 

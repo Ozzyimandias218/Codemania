@@ -1,16 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Compass,
-  Lightbulb,
-  Loader2,
-  Mic,
-  Send,
-  Square,
-  Terminal,
-  Volume2,
-  VolumeX,
-  X,
-} from 'lucide-react';
 import { ApiError, api } from '../lib/api.ts';
 
 export interface AristotleLiveContext {
@@ -46,11 +34,8 @@ interface ChatMessage {
   text: string;
 }
 
-const ARISTOTLE_EMBLEM_SRC = '/src/assets/images/aristotle_emblem_1795160958685.jpg';
-
 export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
   const [open, setOpen] = useState(false);
-  const [emblemFailed, setEmblemFailed] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -62,7 +47,7 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
     {
       id: 'welcome',
       role: 'model',
-      text: 'Greetings, scholar. I am Aristotle—your coding and voice mentor. Ask me for a hint without spoiling the answer, trace a snippet together, or tap the mic to talk through a concept.',
+      text: 'Ask for a hint without revealing the answer, trace a code snippet, or use the mic to record a spoken question.',
     },
   ]);
 
@@ -73,7 +58,7 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
   const lastQuickIdRef = useRef<number | null>(null);
 
   useEffect(() => {
-    scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollEndRef.current?.scrollIntoView();
   }, [messages, open]);
 
   useEffect(() => {
@@ -234,36 +219,20 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
     <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
       {open && (
         <section
-          aria-label="Aristotle Voice Assistant"
-          className="w-[380px] max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[76vh]"
+          aria-label="Aristotle Study Assistant"
+          className="w-[380px] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] rounded-2xl shadow-lg overflow-hidden flex flex-col max-h-[76vh]"
         >
-          {/* Header */}
-          <div className="bg-slate-900 text-white px-4 py-3.5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full overflow-hidden border border-amber-400/70 bg-slate-800 shrink-0 flex items-center justify-center">
-                {!emblemFailed ? (
-                  <img
-                    src={ARISTOTLE_EMBLEM_SRC}
-                    alt="Aristotle emblem"
-                    referrerPolicy="no-referrer"
-                    onError={() => setEmblemFailed(true)}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Compass className="w-5 h-5 text-amber-400" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-display text-sm font-bold tracking-tight text-white truncate">
-                  Aristotle
-                </h2>
-                <p className="text-[11px] text-slate-300 truncate">
-                  {speakingId ? 'Speaking...' : recording ? 'Listening...' : 'Voice & Study Mentor'}
-                </p>
-              </div>
+          <div className="bg-[#1D2433] dark:bg-[#12141C] border-b border-[#363D57] text-[#E8EBF4] px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="font-display text-sm font-bold tracking-tight text-[#E8EBF4] truncate">
+                Aristotle
+              </h2>
+              <p className="text-[11px] text-[#B4BCD0] truncate">
+                {speakingId ? 'Speaking...' : recording ? 'Listening...' : 'Voice & Study Helper'}
+              </p>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -271,10 +240,9 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
                   setAutoSpeak(next);
                   if (!next) stopAudio();
                 }}
-                title={autoSpeak ? 'Mute auto-speak' : 'Enable voice replies'}
-                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                className="px-2 py-1 rounded-md text-[11px] font-medium text-[#E8EBF4] bg-[#2C344A] hover:bg-[#3A435E] transition-colors whitespace-nowrap"
               >
-                {autoSpeak ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                {autoSpeak ? 'Voice On' : 'Muted'}
               </button>
               <button
                 type="button"
@@ -283,22 +251,23 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
                   setOpen(false);
                 }}
                 aria-label="Close Aristotle Assistant"
-                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                className="px-2 py-1 rounded-md text-[11px] font-medium text-[#E8EBF4] bg-[#2C344A] hover:bg-[#3A435E] transition-colors whitespace-nowrap"
               >
-                <X className="w-4 h-4" />
+                Close
               </button>
             </div>
           </div>
 
-          {/* Live Context Ribbon */}
           {contextSummary && (
-            <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 truncate">
-              Viewing: <span className="font-medium text-slate-900">{contextSummary}</span>
+            <div className="px-4 py-2 bg-[#EEF1F7] dark:bg-[#222638] border-b border-[#D5DCE8] dark:border-[#363D57] text-[11px] text-[#4B556B] dark:text-[#B4BCD0] truncate">
+              Viewing:{' '}
+              <span className="font-medium text-[#1D2433] dark:text-[#E8EBF4]">
+                {contextSummary}
+              </span>
             </div>
           )}
 
-          {/* Helper Modes */}
-          <div className="px-3.5 py-2.5 border-b border-slate-100 bg-white flex flex-wrap gap-1.5">
+          <div className="px-3.5 py-2.5 border-b border-[#D5DCE8] dark:border-[#363D57] bg-white dark:bg-[#1A1D28] flex flex-wrap gap-1.5">
             <button
               type="button"
               disabled={sending}
@@ -310,9 +279,8 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
                   'hint',
                 )
               }
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0"
+              className="px-2.5 py-1.5 text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] bg-[#EEF1F7] dark:bg-[#222638] hover:bg-[#E2E7F2] dark:hover:bg-[#2E344D] rounded-lg transition-colors whitespace-nowrap shrink-0"
             >
-              <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
               Hint
             </button>
             <button
@@ -326,7 +294,7 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
                   'explain',
                 )
               }
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0"
+              className="px-2.5 py-1.5 text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] bg-[#EEF1F7] dark:bg-[#222638] hover:bg-[#E2E7F2] dark:hover:bg-[#2E344D] rounded-lg transition-colors whitespace-nowrap shrink-0"
             >
               Explain Topic
             </button>
@@ -341,9 +309,8 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
                   'debug',
                 )
               }
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0"
+              className="px-2.5 py-1.5 text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] bg-[#EEF1F7] dark:bg-[#222638] hover:bg-[#E2E7F2] dark:hover:bg-[#2E344D] rounded-lg transition-colors whitespace-nowrap shrink-0"
             >
-              <Terminal className="w-3.5 h-3.5 text-blue-600" />
               Trace Logic
             </button>
             <button
@@ -355,14 +322,13 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
                   'plan',
                 )
               }
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0"
+              className="px-2.5 py-1.5 text-xs font-medium text-[#1D2433] dark:text-[#E8EBF4] bg-[#EEF1F7] dark:bg-[#222638] hover:bg-[#E2E7F2] dark:hover:bg-[#2E344D] rounded-lg transition-colors whitespace-nowrap shrink-0"
             >
               Next Step
             </button>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50/70">
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#F6F7FB] dark:bg-[#12141C]">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -371,21 +337,20 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
                 <div
                   className={`max-w-[88%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white border border-slate-200 text-slate-800'
+                      ? 'bg-[#7C3AED] text-white'
+                      : 'bg-white dark:bg-[#1A1D28] border border-[#D5DCE8] dark:border-[#363D57] text-[#1D2433] dark:text-[#E8EBF4]'
                   }`}
                 >
                   <p>{msg.text}</p>
                   {msg.role === 'model' && (
-                    <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-end">
+                    <div className="mt-2 pt-1.5 border-t border-[#D5DCE8] dark:border-[#363D57] flex items-center justify-end">
                       <button
                         type="button"
                         onClick={() =>
                           speakingId === msg.id ? stopAudio() : void speakText(msg.id, msg.text)
                         }
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-blue-600 transition-colors"
+                        className="text-[11px] font-semibold text-[#7C3AED] dark:text-[#C4B5FD] hover:underline"
                       >
-                        <Volume2 className="w-3 h-3" />
                         {speakingId === msg.id ? 'Stop voice' : 'Listen'}
                       </button>
                     </div>
@@ -395,85 +360,68 @@ export function AristotleOrb({ context, quickRequest }: AristotleOrbProps) {
             ))}
 
             {(sending || transcribing) && (
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>{transcribing ? 'Transcribing your voice...' : 'Aristotle is thinking...'}</span>
+              <div className="text-xs font-medium text-[#4B556B] dark:text-[#B4BCD0]">
+                {transcribing ? 'Transcribing audio...' : 'Thinking...'}
               </div>
             )}
 
             {error && (
-              <div className="p-2.5 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="p-2.5 text-xs font-medium text-[#C2410C] dark:text-[#FB923C] bg-[#EEF1F7] dark:bg-[#222638] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg">
                 {error}
               </div>
             )}
             <div ref={scrollEndRef} />
           </div>
 
-          {/* Input Bar */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void sendToAristotle(input, 'general');
             }}
-            className="p-3 bg-white border-t border-slate-200 flex items-center gap-2"
+            className="p-3 bg-white dark:bg-[#1A1D28] border-t border-[#D5DCE8] dark:border-[#363D57] flex items-center gap-2"
           >
             <button
               type="button"
               onClick={() => void toggleMicrophone()}
               disabled={sending || transcribing}
-              title={recording ? 'Stop recording' : 'Speak to Aristotle'}
-              className={`p-2.5 rounded-lg transition-colors shrink-0 ${
+              className={`px-2.5 py-2 text-xs font-semibold rounded-lg transition-colors shrink-0 whitespace-nowrap ${
                 recording
-                  ? 'bg-red-600 text-white hover:bg-red-700'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-[#DC2626] text-white hover:bg-[#B91C1C]'
+                  : 'bg-[#EEF1F7] dark:bg-[#222638] text-[#1D2433] dark:text-[#E8EBF4] hover:bg-[#E2E7F2] dark:hover:bg-[#2E344D]'
               }`}
             >
-              {recording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              {recording ? 'Stop' : 'Mic'}
             </button>
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={recording ? 'Recording voice...' : 'Ask Aristotle anything...'}
+              placeholder={recording ? 'Recording voice...' : 'Ask a question...'}
               disabled={sending || recording}
-              className="flex-1 min-w-0 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-600"
+              className="flex-1 min-w-0 px-3 py-2 text-xs bg-[#F6F7FB] dark:bg-[#12141C] text-[#1D2433] dark:text-[#E8EBF4] border border-[#D5DCE8] dark:border-[#363D57] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
             />
             <button
               type="submit"
               disabled={sending || !input.trim()}
-              aria-label="Send message to Aristotle"
-              className="p-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white rounded-lg transition-colors shrink-0"
+              className="px-3 py-2 text-xs font-semibold bg-[#7C3AED] hover:bg-[#6D28D9] disabled:bg-[#9CA3AF] dark:disabled:bg-[#374151] text-white rounded-lg transition-colors shrink-0 whitespace-nowrap"
             >
-              <Send className="w-4 h-4" />
+              Send
             </button>
           </form>
         </section>
       )}
 
-      {/* Floating Circular Ball on the Right */}
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        aria-label={open ? 'Minimize Aristotle Assistant' : 'Open Aristotle Voice Assistant'}
-        className={`group relative w-14 h-14 rounded-full bg-slate-900 border-2 shadow-lg transition-transform duration-200 hover:scale-105 focus-visible:outline-2 focus-visible:outline-blue-600 flex items-center justify-center overflow-hidden ${
+        aria-label={open ? 'Minimize Aristotle Assistant' : 'Open Aristotle Assistant'}
+        className={`px-4 py-3 rounded-2xl text-xs font-semibold text-white shadow-lg transition-colors whitespace-nowrap ${
           recording
-            ? 'border-red-500 ring-4 ring-red-500/20'
-            : speakingId
-              ? 'border-blue-400 ring-4 ring-blue-500/20'
-              : 'border-amber-400/80'
+            ? 'bg-[#DC2626] hover:bg-[#B91C1C]'
+            : 'bg-[#7C3AED] hover:bg-[#6D28D9]'
         }`}
       >
-        {!emblemFailed ? (
-          <img
-            src={ARISTOTLE_EMBLEM_SRC}
-            alt="Aristotle voice mentor"
-            referrerPolicy="no-referrer"
-            onError={() => setEmblemFailed(true)}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <Compass className="w-6 h-6 text-amber-400" />
-        )}
+        {open ? 'Hide Helper' : 'Aristotle'}
       </button>
     </div>
   );

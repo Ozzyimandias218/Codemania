@@ -220,7 +220,7 @@ async function seedPythonQuestions(
   }
 }
 
-async function seedAristotleDailyQuiz(adminId: string) {
+async function seedAristotleZugzwang(adminId: string) {
   const templates: Array<{
     key: AristotleTemplateKey;
     title: string;
@@ -228,7 +228,7 @@ async function seedAristotleDailyQuiz(adminId: string) {
   }> = [
     {
       key: AristotleTemplateKey.INTRO,
-      title: 'Aristotle Daily Intro',
+      title: 'Aristotle Zugzwang Intro',
       body: 'Greetings, scholar. Today is {{quizDate}}. Seven sharp questions await you, each within {{timeLimitSeconds}} seconds.',
     },
     {
@@ -444,10 +444,10 @@ async function main() {
   });
 
   await seedPythonQuestions(python.levels, admin.id);
-  await seedAristotleDailyQuiz(admin.id);
+  await seedAristotleZugzwang(admin.id);
 
   console.info(
-    `[seed] Seeded admin (${admin.email}), tracks, and Aristotle Daily Quiz templates + buffered quizzes + reserve pool.`,
+    `[seed] Seeded admin (${admin.email}), tracks, and Aristotle Zugzwang templates + buffered quizzes + reserve pool.`,
   );
 }
 

@@ -479,10 +479,27 @@ model Appeal {
   @@index([commitmentId, status])
 }
 
+enum StripeWebhookEventStatus {
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
 model StripeWebhookEvent {
-  id          String   @id
-  type        String
-  processedAt DateTime @default(now())
+  id              String                   @id
+  type            String
+  status          StripeWebhookEventStatus @default(PROCESSED)
+  commitmentId    String?
+  summary         String?
+  errorMessage    String?
+  duplicateCount  Int                      @default(0)
+  receivedAt      DateTime                 @default(now())
+  processedAt     DateTime?                @default(now())
+  lastDuplicateAt DateTime?
+
+  @@index([status, receivedAt(sort: Desc)])
+  @@index([receivedAt(sort: Desc)])
 }
 
 model VoiceAsset {

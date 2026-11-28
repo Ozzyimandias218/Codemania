@@ -26,3 +26,16 @@ export const answerRateLimiter = rateLimit({
     },
   },
 });
+
+export const tutorRateLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: {
+      code: 'RATE_LIMITED',
+      message: 'Too many AI tutor requests. Please wait a minute and try again.',
+    },
+  },
+});

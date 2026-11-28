@@ -270,7 +270,7 @@ export class DailyQuizService {
     await this.createAlertIfNoneOpen({
       type: 'RESERVE_FALLBACK_USED',
       quizDate,
-      message: `Daily quiz for ${quizDate} was built automatically from the reserve pool (${needed} questions drawn).`,
+      message: `Zugzwang for ${quizDate} was built automatically from the reserve pool (${needed} questions drawn).`,
     });
 
     const finalApproved = quiz.questions
@@ -292,7 +292,7 @@ export class DailyQuizService {
         questionCount: DAILY_QUIZ_QUESTION_COUNT,
         timeLimitSeconds: env.DAILY_QUESTION_SECONDS,
       },
-      `Welcome to Aristotle Daily Quiz for {{quizDate}}. Answer {{questionCount}} questions, {{timeLimitSeconds}}s each.`,
+      `Welcome to Zugzwang for {{quizDate}}. Answer {{questionCount}} questions, {{timeLimitSeconds}}s each.`,
     );
 
     if (!attempt) {
@@ -355,7 +355,7 @@ export class DailyQuizService {
     const { quiz, approvedQuestions } = await this.ensureLiveQuizForDate(todayDate, now);
     if (!quiz || approvedQuestions.length !== DAILY_QUIZ_QUESTION_COUNT) {
       throw new ConflictError(
-        'Today’s daily quiz does not have 7 approved questions ready',
+        'Today’s Zugzwang does not have 7 approved questions ready',
         'DAILY_QUIZ_UNAVAILABLE',
       );
     }
@@ -379,7 +379,7 @@ export class DailyQuizService {
         questionCount: DAILY_QUIZ_QUESTION_COUNT,
         timeLimitSeconds: env.DAILY_QUESTION_SECONDS,
       },
-      `Welcome to Aristotle Daily Quiz for {{quizDate}}.`,
+      `Welcome to Zugzwang for {{quizDate}}.`,
     );
 
     return {
@@ -406,7 +406,7 @@ export class DailyQuizService {
 
     const attempt = await dailyQuizRepository.findAttempt(userId, todayDate);
     if (!attempt) {
-      throw new NotFoundError('No daily quiz attempt started for today', 'DAILY_ATTEMPT_NOT_FOUND');
+      throw new NotFoundError('No Zugzwang attempt started for today', 'DAILY_ATTEMPT_NOT_FOUND');
     }
     if (attempt.quizDate !== todayDate) {
       throw new ConflictError(
@@ -415,7 +415,7 @@ export class DailyQuizService {
       );
     }
     if (attempt.finishedAt) {
-      throw new ConflictError('Daily quiz attempt is already completed', 'DAILY_ATTEMPT_FINISHED');
+      throw new ConflictError('Zugzwang attempt is already completed', 'DAILY_ATTEMPT_FINISHED');
     }
 
     const currentQuestion = attempt.dailyQuiz.questions.find(
@@ -460,7 +460,7 @@ export class DailyQuizService {
 
     const attempt = await dailyQuizRepository.findAttempt(userId, todayDate);
     if (!attempt) {
-      throw new NotFoundError('No active daily quiz attempt for today', 'DAILY_ATTEMPT_NOT_FOUND');
+      throw new NotFoundError('No active Zugzwang attempt for today', 'DAILY_ATTEMPT_NOT_FOUND');
     }
     if (attempt.quizDate !== todayDate) {
       throw new ConflictError(
@@ -469,7 +469,7 @@ export class DailyQuizService {
       );
     }
     if (attempt.finishedAt) {
-      throw new ConflictError('Daily quiz attempt is already finished', 'DAILY_ATTEMPT_FINISHED');
+      throw new ConflictError('Zugzwang attempt is already finished', 'DAILY_ATTEMPT_FINISHED');
     }
 
     const currentQuestion = attempt.dailyQuiz.questions.find(
@@ -578,7 +578,7 @@ export class DailyQuizService {
     const quizDate = quizDateInput ?? this.getServerTodayDate(now);
     const attempt = await dailyQuizRepository.findAttempt(userId, quizDate);
     if (!attempt) {
-      throw new NotFoundError(`No daily quiz attempt found for ${quizDate}`);
+      throw new NotFoundError(`No Zugzwang attempt found for ${quizDate}`);
     }
     if (!attempt.finishedAt) {
       throw new ForbiddenError(
@@ -918,7 +918,7 @@ export class DailyQuizService {
   async manualPublishQuiz(adminUserId: string, quizDate: string, now: Date = new Date()) {
     const quiz = await dailyQuizRepository.findQuizByDate(quizDate);
     if (!quiz) {
-      throw new NotFoundError(`No daily quiz exists for ${quizDate}`);
+      throw new NotFoundError(`No Zugzwang quiz exists for ${quizDate}`);
     }
     const approvedCount = quiz.questions.filter(
       (q) => q.status === DailyQuestionStatus.APPROVED,
