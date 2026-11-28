@@ -1,10 +1,8 @@
+import type { Express, RequestHandler } from 'express';
+import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
-import { createApp } from './src/backend/app.ts';
 import { env } from './src/backend/config/env.ts';
-import { prisma } from './src/backend/config/prisma.ts';
-import { closeRedisConnection } from './src/backend/config/redis.ts';
-import { startWorkers, stopWorkers } from './src/backend/jobs/workers.ts';
 
 function isTcpReachable(host: string, port: number, timeoutMs = 1000): Promise<boolean> {
   return new Promise((resolve) => {
@@ -39,6 +37,7 @@ async function isDatabaseReachable(): Promise<boolean> {
       return false;
     }
 
+    const { prisma } = await import('./src/backend/config/prisma.ts');
     await Promise.race([
       prisma.$queryRaw`SELECT 1`,
       new Promise((_, reject) => setTimeout(() => reject(new Error('DB ping timeout')), 1500)),
@@ -50,51 +49,101 @@ async function isDatabaseReachable(): Promise<boolean> {
 }
 
 async function bootstrap() {
-  const dbOk = await isDatabaseReachable();
-  const useSandboxFallback = !dbOk && process.env.REQUIRE_POSTGRES !== 'true';
+  const isDev = env.NODE_ENV !== 'production';
 
-  if (useSandboxFallback) {
-    console.warn(
-      '[codemania] PostgreSQL is unreachable; starting with in-memory sandbox store.',
-    );
-  }
+  const vitePromise = isDev
+    ? import('vite').then(({ createServer: createViteServer }) =>
+        createViteServer({
+          server: { middlewareMode: true },
+          appType: 'spa',
+        }),
+      )
+    : null;
 
-  let frontendMiddleware;
-  let viteClose: (() => Promise<void>) | null = null;
-
-  if (env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
+  if (vitePromise) {
+    vitePromise.catch((err) => {
+      console.error('[codemania] Vite dev middleware failed to initialize:', err);
     });
-    frontendMiddleware = vite.middlewares;
-    viteClose = () => vite.close();
   }
 
-  const app = createApp({
-    useSandboxFallback,
-    frontendMiddleware,
-    staticDistDir: env.NODE_ENV === 'production' ? path.resolve(process.cwd(), 'dist') : undefined,
+  let useSandboxFallback = true;
+
+  const appPromise: Promise<Express> = (async () => {
+    const [{ createApp }, dbOk] = await Promise.all([
+      import('./src/backend/app.ts'),
+      isDatabaseReachable(),
+    ]);
+    useSandboxFallback = !dbOk && process.env.REQUIRE_POSTGRES !== 'true';
+
+    if (useSandboxFallback) {
+      console.warn(
+        '[codemania] PostgreSQL is unreachable; starting with in-memory sandbox store.',
+      );
+    }
+
+    const frontendMiddleware: RequestHandler | undefined = vitePromise
+      ? (req, res, next) => {
+          vitePromise
+            .then((vite) => vite.middlewares(req, res, next))
+            .catch(next);
+        }
+      : undefined;
+
+    const app = createApp({
+      useSandboxFallback,
+      frontendMiddleware,
+      staticDistDir: !isDev ? path.resolve(process.cwd(), 'dist') : undefined,
+    });
+
+    if (!useSandboxFallback) {
+      const { startWorkers } = await import('./src/backend/jobs/workers.ts');
+      await startWorkers();
+    }
+
+    return app;
+  })();
+
+  appPromise.catch((err) => {
+    console.error('[codemania] Fatal initialization error:', err);
+    process.exit(1);
   });
 
-  if (!useSandboxFallback) {
-    await startWorkers();
-  }
+  const server = http.createServer((req, res) => {
+    appPromise
+      .then((app) => app(req, res))
+      .catch((err) => {
+        console.error('[codemania] Request handler failed:', err);
+        if (!res.headersSent) {
+          res.statusCode = 500;
+          res.end('Internal Server Error');
+        }
+      });
+  });
 
-  const server = app.listen(env.PORT, '0.0.0.0', () => {
+  server.on('error', (err) => {
+    console.error('[codemania] HTTP server failed to bind:', err);
+    process.exit(1);
+  });
+
+  server.listen(env.PORT, '0.0.0.0', () => {
     console.info(
-      `[codemania] listening on http://0.0.0.0:${env.PORT} (${env.NODE_ENV}, db=${useSandboxFallback ? 'sandbox' : 'postgres'})`,
+      `[codemania] listening on http://0.0.0.0:${env.PORT} (${env.NODE_ENV})`,
     );
   });
 
   const shutdown = async (signal: string) => {
     console.info(`[codemania] received ${signal}, shutting down...`);
     server.close(async () => {
-      if (viteClose) await viteClose();
+      if (vitePromise) {
+        const vite = await vitePromise.catch(() => null);
+        if (vite) await vite.close();
+      }
+      const { stopWorkers } = await import('./src/backend/jobs/workers.ts');
+      const { closeRedisConnection } = await import('./src/backend/config/redis.ts');
       await stopWorkers();
       await closeRedisConnection();
       if (!useSandboxFallback) {
+        const { prisma } = await import('./src/backend/config/prisma.ts');
         await prisma.$disconnect();
       }
       process.exit(0);
@@ -105,4 +154,7 @@ async function bootstrap() {
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 }
 
-void bootstrap();
+bootstrap().catch((err) => {
+  console.error('[codemania] Fatal startup error:', err);
+  process.exit(1);
+});
